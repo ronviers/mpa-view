@@ -1,70 +1,99 @@
 # mpa-view — next-session handoff
 
-**Status (2026-05-10):** Bootstrapped this session. v0.1 ships the
-episode index + gFDR signature view, reading the
-[mpa-central library](https://github.com/ronviers/mpa-central) cells
-through MPA primitives (Cugliandolo–Kurchan parametric, ground-truth
-regime overlay).
+**Status (2026-05-10):** v0.1.3. Three view tabs landed: `single cell`,
+`strip · substrate-native`, `X-ratio · canonical`. Reads 60 cells from
+`H:/mpa-central/library/` (16 brain / 22 glass / 22 quantum). Server
+at `127.0.0.1:18766` (override via `MPA_VIEW_HOST` / `MPA_VIEW_PORT`).
+Github at <https://github.com/ronviers/mpa-view>.
 
-**What's running:**
+The X-ratio view is the load-bearing piece — it mixes substrate-native
+(χ, C) data down to the canonical X-ratio space the framework defines
+regime invariants in (per [RFC-S §1](https://github.com/ronviers/mpa-atlas/blob/main/rfcs/MPA-RFC-S_Scale-Management.md#1-canonical-representation-at-observer-position-p)
+RG-flow framing; per [v9 §FDR signatures](https://github.com/ronviers/mpa-atlas/blob/main/framework/v9_compressed.md)
+for X / α_s / N_f definitions). The other two views are stepping
+stones that helped us get there honestly.
 
-- `server.py` — stdlib `http.server` on `127.0.0.1:18766` (override
-  with `MPA_VIEW_HOST` / `MPA_VIEW_PORT`).
-- `loaders/library.py` — reads the manifest at
-  `H:/mpa-central/library/MANIFEST.json`, indexes 60+ cells, lazily
-  loads per-cell payloads.
-- `views/gfdr.py` — converts a cell payload to plot-ready Plotly
-  traces (one per τ_obs window, parametrized by sample order).
-- `static/shell.{html,css,js}` — single-page UI: filter by
-  substrate / gt / ẋ-kind, click a cell, watch the gFDR locus.
-- Regime ground-truth (`gt: c|s|k|r`) is overlaid prominently as a
-  color badge so the operator can read the canonical signature against
-  the substrate's known character.
+Read in this order before picking up:
 
-**What's not yet running:**
-
-| Slot | Status | Notes |
-|---|---|---|
-| Calibration pipeline stepper | scaffold only | Activates when the first sealed [calibration record](https://github.com/ronviers/mpa-atlas/blob/main/schema/calibration-record.v0.1.json) (RFC-C v0.2) lands. No records exist yet. |
-| Cross-substrate strip view | **landed** (2026-05-10) | Tab in the right pane: when filters narrow to a single substrate + ẋ-kind, renders a grid of mini gFDR plots ordered by the substrate's regime-migration parameter (T for glass, p_base for quantum, scenario-order for brain). Per-cell auto-scaling (shared range failed against τ_env-anchored grids). |
-| X-ratio canonical view | **landed** (2026-05-10) | Third tab. Substrate-native (χ, C) data mixed down to canonical X-ratio space per RFC-S §1's RG-flow framing — τ_window rescaled by τ_env_analytic (LO mix-down), X estimated as lim χ/(C₀−C) per (cell, τ_window). Two stacked panels: log-Y X with framework reference at X=1 (calibrated units caveat surfaced), linear N_f for the k_frust signature. Filled markers = asymptote reached, hollow = curving. |
-| Pattern library curation | not started | Curated bookmarks of canonical signature shapes (s-aging diagonal, c-frozen suppressed locus, r-equilibrium unit-slope). Trains operators by example. |
-| Driver-profile versioning replay | not started | Once an old episode is on file with a sealed driver profile, replay it through a newer profile. Calibration is the gating dependency. |
-| Brain Langevin reference driver consumption | gated on mpa-atlas | Brain library cells render fine, but framework-canonical claims on them require [`reference-drivers/brain-langevin.md`](https://github.com/ronviers/mpa-atlas/blob/main/reference-drivers/) per RULES.md rule 14. mpa-atlas handoff item 2 covers it. |
+1. This file.
+2. [README.md](../README.md) — what's running, how to run it.
+3. [`H:/mpa-atlas/CLAUDE.md`](https://github.com/ronviers/mpa-atlas/blob/main/CLAUDE.md) §Scope — implementation code in this repo is normal engineering, not thin-RFC. Protocol-shaped surfaces (calibration record schema, reference drivers) live in mpa-atlas and obey thin-RFC discipline.
 
 ---
 
-## Open item 1 — Calibration pipeline stepper
+## Open item 1 — Cross-substrate overlay in canonical X-ratio space
 
-The proposal's second bullet: a stepper that walks through a
-calibration record (RFC-C v0.2 schema) primitive by primitive
-(`L`, `G_0`, `τ_obs`, `γ_AB`), surfacing the substrate-native SOP
-provenance and the validation evidence at each step. The stepper is
-the "calibration mode" the proposal contrasts against runtime.
+**The single highest-leverage next move.** Currently the X-ratio view
+requires a single (substrate, ẋ-kind) filter — it overlays cells
+*within* one substrate. The cross-substrate overlay would relax that:
+plot glass spin-relative + quantum detection-event + brain velocity
+(or whatever channel pairing makes sense) on the same canonical-X
+plot. Same x-axis (τ_window/τ_env_eff). Different markers per
+substrate; color still by gt-regime.
 
-Blocked on: no sealed calibration records exist yet. The first one
-will likely come from running an mpc-glass or mpc-quantum experiment
-through RFC-C's protocol and emitting a record matching the schema at
-[`schema/calibration-record.v0.1.json`](https://github.com/ronviers/mpa-atlas/blob/main/schema/calibration-record.v0.1.json).
+**Why this matters:** the framework's strongest empirical claim is
+that c → s → r migration is a *cross-substrate universality* — same
+α_s slope across substrates within tolerance, per [character_compressed.md
+§gFDR signatures](https://github.com/ronviers/mpa-atlas/blob/main/framework/character_compressed.md).
+The current per-substrate view can't instance that claim because
+each substrate is rendered alone. The overlay can.
 
-**Done when:** mpa-view loads a calibration record by path; a stepper
-UI walks through `measurements.{L, G_0, tau_obs_canonical, gamma_AB}`
-in order; each step shows the measured value, uncertainty, SOP
-reference, and the evidence file (cessation trace, drive sweep, etc.)
-inline.
+**Implementation:**
+
+- Relax the single-substrate filter requirement on the X-ratio view.
+- Allow multi-substrate selection (or default to "all" when no
+  substrate filter is active).
+- Per-substrate marker symbol (circle / square / triangle), color
+  still gt-regime.
+- Per-cell hover already shows substrate; that stays.
+- Honest annotation: cells from different substrates land at
+  different absolute X because they have different un-normalized
+  units; relative migration shapes are what's comparable, not
+  absolute heights. (Same calibration caveat as the per-substrate
+  X-ratio view, just louder.)
+
+**Done when:** X-ratio view renders multi-substrate overlays
+correctly; one combined cluster per (substrate, gt) visible; the
+operator can read whether s-cells from glass and quantum land at
+similar canonical X positions (the cross-substrate transfer test).
+
+**Effort:** A few hours. Mechanical extension of the existing
+`renderXratio` / `renderXratioPlots` paths in `static/shell.js`.
+
+---
+
+## Open item 2 — Calibration pipeline stepper
+
+**Gating:** No sealed calibration records exist yet. The
+[`calibration-record.v0.1.json`](https://github.com/ronviers/mpa-atlas/blob/main/schema/calibration-record.v0.1.json)
+schema shipped with [RFC-C v0.2](https://github.com/ronviers/mpa-atlas/blob/main/rfcs/MPA-RFC-C-Calibration.md);
+the first record will likely come from running an mpc-glass or
+mpc-quantum experiment through the protocol.
+
+The stepper is a tab that walks through a record primitive by
+primitive (`L`, `G_0`, `τ_obs_canonical`, `γ_AB`), surfacing the
+substrate-native SOP provenance and the validation evidence at
+each step. The stepper is the "calibration mode" the project's
+mission contrasts against runtime.
+
+**Done when:** mpa-view loads a calibration record by path; a
+stepper UI walks through `measurements.{L, G_0, tau_obs_canonical,
+gamma_AB}` in order; each step shows the measured value,
+uncertainty, SOP reference, and the evidence file (cessation
+trace, drive sweep, etc.) inline.
 
 **Effort:** A few hours once the first record exists. Mechanical
 schema → UI mapping.
 
 ---
 
-## Open item 2 — Pattern library curation
+## Open item 3 — Pattern library curation
 
 A curated set of *bookmarked views* — saved (cell, view-type, zoom,
-annotation) tuples that name canonical signature shapes ("s-aging
-diagonal at moderate aging", "c-frozen suppressed locus at deep
-freeze", etc.). The pattern library is what trains operators to
-recognise when a substrate is well-characterised.
+annotation) tuples that name canonical signature shapes ("highest
+N_f at T_c in EA-glass spin-flip", "monotonic 3-decade X walk in
+quantum detection-event", etc.). The pattern library is what trains
+operators to recognise when a substrate is well-characterised.
 
 This is a UI feature (save / name / annotate / share) plus a small
 JSON store of bookmarks under `pattern-library/`. Out of scope until
@@ -73,15 +102,44 @@ premature curation is anti-pattern.
 
 ---
 
+## Notable findings to surface upstream
+
+These came out of using the views built this session — they're
+empirical observations the microscope generated. They belong in
+mpa-atlas (reference drivers / RFC-C) eventually:
+
+1. **Per-invariant ẋ-channel preferences for structural-glass.** Spin-flip
+   is the right ẋ-channel for reading `N_f` (the k_frust signature);
+   spin-relative is the right channel for `X-ratio` (and eventually
+   `α_s`) reading. The reference driver's Calibration section should
+   declare which channel is canonical for which invariant. mpa-atlas
+   handoff item 1.
+2. **N_f peaks at T_c in glass spin-flip.** T=1.000 (gt=k) cell shows
+   N_f mean 0.318 (max 0.500) — empirically the highest in the strip.
+   That's the framework's k_frust signature instancing precisely
+   where it should. Worth noting in `reference-drivers/structural-glass.md`
+   as an empirical confirmation.
+3. **gt-label vs gFDR-signature disagreements as calibration content.**
+   T=0.200 (gt=c) glass spin-flip shows N_f ≈ 0.21 — substantial
+   transient-negative response that doesn't fit the c-label's
+   thermodynamic prior. Either the gt label needs revision (the
+   thermodynamic-T criterion misses frustration-instantiation) or
+   the reference driver should declare that c-cells in spin-flip
+   show N_f anyway. Calibration discipline ought to specify which
+   wins when label and signature disagree.
+
+---
+
 ## Conventions reminder
 
-- mpa-view conforms to the `mpa-*` repo convention. Single handoff per
-  repo at `docs/handoff_next_session.md`. Multiple parallel pending
-  items live as "Open item N" subsections within this single file.
-- A handoff carries only transient content (this open item, what to do,
-  done-when, effort). Architectural commitments / framework reasoning
-  live in the README, the proposal, or the protocol RFCs in
-  [mpa-atlas](https://github.com/ronviers/mpa-atlas).
+- mpa-view conforms to the `mpa-*` repo convention. Single handoff
+  per repo at `docs/handoff_next_session.md`. Multiple parallel
+  pending items live as "Open item N" subsections within this
+  single file.
+- A handoff carries only transient content (open item, what to do,
+  done-when, effort). Architectural commitments / framework
+  reasoning live in their real homes — README, [`H:/mpa-atlas/CLAUDE.md`](https://github.com/ronviers/mpa-atlas/blob/main/CLAUDE.md),
+  the protocol RFCs, the framework documents.
 - When an open item closes, **delete its section in the same commit
   as the deliverable**. Absorb any durable content into its real home
   first. When the last item closes, delete this file.
