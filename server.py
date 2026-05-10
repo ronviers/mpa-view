@@ -25,6 +25,7 @@ from urllib.parse import urlparse
 
 from loaders.library import Library
 from views import gfdr as view_gfdr
+from views import xratio as view_xratio
 
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -79,6 +80,9 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/api/view/gfdr/"):
             task_id = path[len("/api/view/gfdr/"):]
             return self._send_view_gfdr(task_id)
+        if path.startswith("/api/view/xratio/"):
+            task_id = path[len("/api/view/xratio/"):]
+            return self._send_view_xratio(task_id)
         return self.send_error(404, f"unknown route: {path}")
 
     # ── API responses ────────────────────────────────────────────────────
@@ -97,6 +101,16 @@ class Handler(BaseHTTPRequestHandler):
             view = view_gfdr.prepare(payload)
         except Exception as exc:  # diagnostic
             return self.send_error(500, f"gfdr view failed: {type(exc).__name__}: {exc}")
+        return self._send_json(view)
+
+    def _send_view_xratio(self, task_id: str):
+        payload = _LIBRARY.get_cell_payload(task_id)
+        if payload is None:
+            return self.send_error(404, f"cell not found: {task_id}")
+        try:
+            view = view_xratio.prepare(payload)
+        except Exception as exc:  # diagnostic
+            return self.send_error(500, f"xratio view failed: {type(exc).__name__}: {exc}")
         return self._send_json(view)
 
     # ── Helpers ──────────────────────────────────────────────────────────

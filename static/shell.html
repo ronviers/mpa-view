@@ -44,7 +44,8 @@
     <section id="plot-area">
         <nav id="view-tabs">
             <button class="view-tab active" data-view="single">single cell</button>
-            <button class="view-tab" data-view="strip">strip · regime migration</button>
+            <button class="view-tab" data-view="strip">strip · substrate-native</button>
+            <button class="view-tab" data-view="xratio">X-ratio · canonical</button>
             <span class="view-help" id="view-help"></span>
         </nav>
         <div id="single-view" class="view-pane active">
@@ -60,6 +61,16 @@
             </header>
             <div id="strip-grid"></div>
             <footer id="strip-meta"></footer>
+        </div>
+        <div id="xratio-view" class="view-pane">
+            <header id="xratio-header">
+                <span class="placeholder">pick substrate + ẋ-kind to mix substrate-native data down into canonical X-ratio space &rarr;</span>
+            </header>
+            <div id="xratio-plots">
+                <div id="xratio-plot-X" class="xratio-plot"></div>
+                <div id="xratio-plot-Nf" class="xratio-plot"></div>
+            </div>
+            <footer id="xratio-meta"></footer>
         </div>
     </section>
 </main>

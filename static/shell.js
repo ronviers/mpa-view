@@ -21,19 +21,26 @@
         stripHeader: document.getElementById('strip-header'),
         stripGrid: document.getElementById('strip-grid'),
         stripMeta: document.getElementById('strip-meta'),
+        xratioView: document.getElementById('xratio-view'),
+        xratioHeader: document.getElementById('xratio-header'),
+        xratioPlotX: document.getElementById('xratio-plot-X'),
+        xratioPlotNf: document.getElementById('xratio-plot-Nf'),
+        xratioMeta: document.getElementById('xratio-meta'),
     };
 
     const state = {
         cells: [],
         filtered: [],
         activeId: null,
-        viewMode: 'single',           // 'single' | 'strip'
-        stripCache: new Map(),         // task_id -> view payload
+        viewMode: 'single',           // 'single' | 'strip' | 'xratio'
+        stripCache: new Map(),         // task_id -> gFDR view payload
+        xratioCache: new Map(),        // task_id -> xratio view payload
     };
 
     const VIEW_HELP = {
         single: 'one cell · all 31 τ_obs windows superimposed',
         strip:  'all cells matching the (substrate, ẋ-kind) filter · regime migration in one glance',
+        xratio: 'substrate-native data mixed down to canonical X-ratio space · framework reference lines at X=0 (c) and X=1 (r, calibrated)',
     };
 
     // ── Boot ───────────────────────────────────────────────────────────
@@ -104,6 +111,7 @@
         );
         renderCellList();
         if (state.viewMode === 'strip') renderStrip();
+        if (state.viewMode === 'xratio') renderXratio();
     }
 
     function renderCellList() {
@@ -289,8 +297,10 @@
         }
         els.singleView.classList.toggle('active', mode === 'single');
         els.stripView.classList.toggle('active', mode === 'strip');
+        els.xratioView.classList.toggle('active', mode === 'xratio');
         els.viewHelp.textContent = VIEW_HELP[mode];
         if (mode === 'strip') renderStrip();
+        if (mode === 'xratio') renderXratio();
     }
 
     // ── Strip view ─────────────────────────────────────────────────────
@@ -440,6 +450,195 @@
 
     function regimeColor(gt) {
         return ({c: '#3f88c5', s: '#e6af2e', k: '#a23b72', r: '#a8a8a8'})[gt] || '#555';
+    }
+
+    // ── X-ratio · canonical view ───────────────────────────────────────
+    //
+    // Mixes substrate-native (χ, C) data down to the canonical X-ratio
+    // space the framework defines its regime invariants in. RFC-S §1
+    // says the canonical representation lives at the RG-flow fixed point
+    // at chosen τ_obs; this view does the analog by rescaling τ_window
+    // by τ_env (the "LO mix-down") and computing X = χ/(C₀-C) at the
+    // asymptotic tail of the parametric per (cell, τ_window).
+    //
+    // Two stacked panels:
+    //   top:    log-Y X vs log(τ_window/τ_env) — handles wide dynamic
+    //           range (quantum spans ~3 decades). Reference at X=1.
+    //   bottom: linear N_f vs log(τ_window/τ_env) — k_frust signature.
+    //
+    // Markers: filled circle = asymptote reached; hollow = curving.
+
+    function renderXratio() {
+        const cells = [...state.filtered].sort(
+            (a, b) => migrationKey(a) - migrationKey(b)
+        );
+        const subs = uniq(cells.map(c => c.substrate));
+        const xks = uniq(cells.map(c => c.xdot_kind));
+        if (subs.length !== 1 || xks.length !== 1) {
+            els.xratioHeader.innerHTML =
+                '<span class="placeholder">X-ratio view needs a single substrate AND a single ẋ-kind picked in the left filters &rarr;</span>';
+            els.xratioPlotX.innerHTML = '';
+            els.xratioPlotNf.innerHTML = '';
+            els.xratioMeta.innerHTML = '';
+            return;
+        }
+        const sub = subs[0], xk = xks[0];
+        els.xratioHeader.innerHTML = `
+            <span class="title">${escapeHtml(sub)} · ẋ=${escapeHtml(xk)} · canonical (X-ratio)</span>
+            <span class="dim"> · ${cells.length} cells, color = gt regime, x-axis = τ_window / τ_env</span>
+        `;
+        els.xratioMeta.innerHTML = `
+            <strong>top:</strong> X = lim χ/(C₀−C) per (cell, τ_window).
+            <span style="color: var(--text)">filled markers</span> = asymptote reached;
+            <span style="color: var(--dim)">hollow</span> = curving (limit not reached on experiment window).
+            <span class="strip-note"><strong>calibration caveat:</strong> X=1 reference is in <em>calibrated</em> units (T-normalized for glass, equivalent for other substrates). Substrate-native χ and C have substrate-specific units; raw X here only matches the framework reference after a calibration record (RFC-C v0.2) supplies the normalization. <strong>Relative migration across cells is informative; absolute identification against framework references is not yet.</strong></span>
+            <span class="strip-note"><strong>bottom:</strong> N_f = fraction of (t, dt) samples where χ &lt; 0. The framework's k_frust signature. Stays in [0, 1] without normalization.</span>
+        `;
+
+        Promise.all(cells.map(c => fetchXratioView(c.task_id)))
+            .then(views => renderXratioPlots(cells, views))
+            .catch(err => {
+                els.xratioPlotX.innerHTML = `<div style="padding:20px;color:var(--dim)">load failed: ${escapeHtml(String(err))}</div>`;
+            });
+    }
+
+    function fetchXratioView(taskId) {
+        if (state.xratioCache.has(taskId)) {
+            return Promise.resolve(state.xratioCache.get(taskId));
+        }
+        return fetch(`/api/view/xratio/${encodeURIComponent(taskId)}`)
+            .then(r => r.json())
+            .then(v => { state.xratioCache.set(taskId, v); return v; });
+    }
+
+    function renderXratioPlots(cells, views) {
+        // Build per-cell traces. Each cell → one trace in X plot, one in N_f plot.
+        // Markers: filled if asymptote_status === 'reached', hollow otherwise.
+        const tracesX = [];
+        const tracesNf = [];
+        for (let i = 0; i < cells.length; i++) {
+            const cell = cells[i];
+            const view = views[i];
+            const color = regimeColor(cell.gt);
+            const points = view.points || [];
+            // x-axis: τ_window_rescaled if available else τ_window raw
+            const xs = points.map(p => p.tau_window_rescaled ?? p.tau_window);
+            const Xs = points.map(p => p.X);
+            const Nfs = points.map(p => p.N_f);
+            const reached = points.map(p => p.asymptote_status === 'reached');
+            const hover = points.map(p =>
+                `${escapeHtml(cell.task_id)}<br>` +
+                `τ_window=${formatNum(p.tau_window)} (rescaled=${formatNum(p.tau_window_rescaled)})<br>` +
+                `X=${p.X==null ? 'N/A' : p.X.toExponential(3)}<br>` +
+                `N_f=${formatNum(p.N_f)}<br>` +
+                `asymptote=${p.asymptote_status}`
+            );
+            // Split into reached / curving for distinct marker styles.
+            const xR = [], yR = [], hR = [], xC = [], yC = [], hC = [];
+            const nR = [], nC = [];
+            for (let j = 0; j < points.length; j++) {
+                if (Xs[j] == null) continue;
+                if (reached[j]) {
+                    xR.push(xs[j]); yR.push(Xs[j]); hR.push(hover[j]);
+                    nR.push(Nfs[j]);
+                } else {
+                    xC.push(xs[j]); yC.push(Xs[j]); hC.push(hover[j]);
+                    nC.push(Nfs[j]);
+                }
+            }
+            // X plot — reached (filled) + curving (hollow); use legendgroup so
+            // the cell shows up once in legend.
+            const lg = `${cell.operating_point_label} · gt=${cell.gt}`;
+            tracesX.push({
+                x: xR, y: yR, text: hR, hovertemplate: '%{text}<extra></extra>',
+                mode: 'markers+lines', type: 'scatter',
+                name: lg, legendgroup: cell.task_id,
+                line: {color, width: 1},
+                marker: {color, size: 7, symbol: 'circle'},
+            });
+            tracesX.push({
+                x: xC, y: yC, text: hC, hovertemplate: '%{text}<extra></extra>',
+                mode: 'markers', type: 'scatter',
+                name: lg + ' · curving', legendgroup: cell.task_id, showlegend: false,
+                marker: {color, size: 7, symbol: 'circle-open'},
+            });
+            // N_f plot — same legend group; render all points (no asymptote split).
+            tracesNf.push({
+                x: xs, y: Nfs,
+                text: hover, hovertemplate: '%{text}<extra></extra>',
+                mode: 'markers+lines', type: 'scatter',
+                name: lg, legendgroup: cell.task_id, showlegend: false,
+                line: {color, width: 1},
+                marker: {color, size: 6},
+            });
+        }
+
+        const xAxisTitle = views[0]?.tau_env_eff_source === 'tau_env_analytic'
+            ? 'τ_window / τ_env_analytic'
+            : 'τ_window / t_obs (fallback)';
+
+        const layoutX = {
+            paper_bgcolor: '#1f2123',
+            plot_bgcolor: '#1f2123',
+            font: {family: 'ui-monospace, monospace', color: '#e6e7e9', size: 11},
+            margin: {l: 70, r: 30, t: 24, b: 50},
+            xaxis: {
+                title: {text: xAxisTitle},
+                type: 'log', gridcolor: '#36383b', zerolinecolor: '#36383b',
+            },
+            yaxis: {
+                title: {text: 'X = χ/(C_diag − C) at asymptote'},
+                type: 'log', gridcolor: '#36383b', zerolinecolor: '#36383b',
+            },
+            shapes: [{
+                type: 'line', xref: 'paper', yref: 'y',
+                x0: 0, x1: 1, y0: 1, y1: 1,
+                line: {color: '#e6af2e', width: 1.5, dash: 'dash'},
+            }],
+            annotations: [{
+                xref: 'paper', yref: 'y', x: 0.99, y: 1, xanchor: 'right', yanchor: 'bottom',
+                text: 'X=1 · framework r-canonical (calibrated units)',
+                showarrow: false, font: {color: '#e6af2e', size: 10},
+            }],
+            showlegend: true,
+            legend: {bgcolor: 'rgba(31,33,35,0.8)', font: {size: 10}},
+        };
+        const layoutNf = {
+            paper_bgcolor: '#1f2123',
+            plot_bgcolor: '#1f2123',
+            font: {family: 'ui-monospace, monospace', color: '#e6e7e9', size: 11},
+            margin: {l: 70, r: 30, t: 24, b: 50},
+            xaxis: {
+                title: {text: xAxisTitle},
+                type: 'log', gridcolor: '#36383b', zerolinecolor: '#36383b',
+            },
+            yaxis: {
+                title: {text: 'N_f = frac(χ < 0) per (t, dt) samples'},
+                gridcolor: '#36383b', zerolinecolor: '#36383b',
+                range: [0, 0.6],
+            },
+            showlegend: false,
+        };
+        Plotly.newPlot(els.xratioPlotX, tracesX, layoutX, {
+            displaylogo: false, responsive: true,
+            modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+        });
+        Plotly.newPlot(els.xratioPlotNf, tracesNf, layoutNf, {
+            displaylogo: false, responsive: true,
+            modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+        });
+        // Click to drill (X plot only).
+        els.xratioPlotX.on('plotly_click', evt => {
+            const pt = evt.points && evt.points[0];
+            if (!pt) return;
+            // Find matching cell by legendgroup.
+            const trace = tracesX[pt.curveNumber];
+            const cell = cells.find(c => c.task_id === trace.legendgroup);
+            if (cell) {
+                setViewMode('single');
+                selectCell(cell.task_id);
+            }
+        });
     }
 
     function cssEscape(s) {

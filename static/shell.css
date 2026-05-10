@@ -278,7 +278,7 @@ nav#view-tabs {
     border-color: var(--accent);
 }
 
-#strip-meta {
+#strip-meta, #xratio-meta {
     background: var(--panel);
     border-top: 1px solid var(--border);
     padding: 8px 16px;
@@ -288,6 +288,44 @@ nav#view-tabs {
     flex-wrap: wrap;
     gap: 4px 14px;
     align-items: center;
+}
+
+#xratio-header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    color: var(--dim);
+    font-size: 11px;
+}
+
+#xratio-header .placeholder { color: var(--dim); }
+#xratio-header .title { color: var(--text); font-weight: 600; }
+
+#xratio-plots {
+    flex: 1;
+    background: var(--bg);
+    overflow: auto;
+    padding: 12px;
+    display: grid;
+    gap: 12px;
+    grid-template-rows: 1fr 1fr;
+}
+
+.xratio-plot {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    min-height: 280px;
+}
+
+#xratio-meta strong {
+    color: var(--text);
+    font-weight: 600;
+}
+
+#xratio-meta {
+    color: var(--dim);
 }
 
 #strip-meta strong {
