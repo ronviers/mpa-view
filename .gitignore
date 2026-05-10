@@ -1,0 +1,43 @@
+# mpa-view — Python microscope app, no compiled artifacts beyond runtime caches.
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtualenvs
+.venv/
+venv/
+env/
+.python-version
+
+# Tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local-only artifacts
+*.log
+*.pid
+*.tmp
+local/
+scratch/
+
+# Profiler output is frozen (committed) but secrets must never appear in it.
+# dev_profile.json is intentionally NOT in .gitignore — committing it documents
+# the host. If a future profiler version emits raw secrets the keystore must
+# be cleaned up first; see ~/.claude/CLAUDE.md.

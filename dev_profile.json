@@ -1,0 +1,11 @@
+{
+  "_note": "Placeholder. Run H:/GWS1_Profiler/host-profile_concise.py to populate. The profiler reads the host environment, never writes raw secret values into this file (only PRESENT (#sha-fingerprint) markers).",
+  "environment": null,
+  "mpc_kernel_version": null,
+  "git": null,
+  "hardware": null,
+  "system_tools": null,
+  "python_dependencies": null,
+  "ai_environment": null,
+  "project_structure": null
+}

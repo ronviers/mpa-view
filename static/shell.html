@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mpa-view · microscope</title>
+    <link rel="stylesheet" href="/static/shell.css">
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+</head>
+<body>
+
+<header>
+    <h1>mpa-view <span class="dim">· microscope for the measurement isomorphism</span></h1>
+    <div class="health" id="health">loading library&hellip;</div>
+</header>
+
+<main>
+    <aside id="cell-picker">
+        <div class="controls">
+            <label>substrate
+                <select id="substrate-filter">
+                    <option value="">all</option>
+                </select>
+            </label>
+            <label>gt
+                <select id="gt-filter">
+                    <option value="">all</option>
+                    <option value="c">c · committed/coherent</option>
+                    <option value="s">s · sustained / aging</option>
+                    <option value="k">k · critical / conflict</option>
+                    <option value="r">r · relaxed / equilibrium</option>
+                </select>
+            </label>
+            <label>ẋ-kind
+                <select id="xdot-filter">
+                    <option value="">all</option>
+                </select>
+            </label>
+        </div>
+        <div class="cell-count" id="cell-count">&mdash;</div>
+        <ol id="cell-list"></ol>
+    </aside>
+
+    <section id="plot-area">
+        <header id="cell-header">
+            <span class="placeholder">pick a cell &rarr;</span>
+        </header>
+        <div id="plot"></div>
+        <footer id="cell-meta"></footer>
+    </section>
+</main>
+
+<script src="/static/shell.js"></script>
+</body>
+</html>

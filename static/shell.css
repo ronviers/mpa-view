@@ -1,0 +1,216 @@
+/* mpa-view shell — dark microscope chrome.
+   No frameworks, no preprocessor. Single source. */
+
+:root {
+    --bg: #161719;
+    --panel: #1f2123;
+    --panel-2: #292b2e;
+    --border: #36383b;
+    --text: #e6e7e9;
+    --dim: #8d8f93;
+    --accent: #5fb3ff;
+    --regime-c: #3f88c5;
+    --regime-s: #e6af2e;
+    --regime-k: #a23b72;
+    --regime-r: #a8a8a8;
+    --regime-unknown: #555;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.45;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+header h1 {
+    font-size: 14px;
+    margin: 0;
+    font-weight: 600;
+}
+
+.dim { color: var(--dim); font-weight: 400; }
+
+.health {
+    color: var(--dim);
+    font-size: 11px;
+}
+
+main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    overflow: hidden;
+}
+
+aside#cell-picker {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.controls {
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border-bottom: 1px solid var(--border);
+}
+
+.controls label {
+    display: flex;
+    flex-direction: column;
+    color: var(--dim);
+    font-size: 11px;
+    gap: 2px;
+}
+
+.controls select {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 4px 6px;
+    font: inherit;
+    border-radius: 3px;
+}
+
+.cell-count {
+    padding: 6px 12px;
+    color: var(--dim);
+    font-size: 11px;
+    border-bottom: 1px solid var(--border);
+}
+
+ol#cell-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+}
+
+ol#cell-list li {
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: 24px 1fr;
+    gap: 8px;
+    align-items: center;
+}
+
+ol#cell-list li:hover {
+    background: var(--panel-2);
+}
+
+ol#cell-list li.active {
+    background: var(--panel-2);
+    border-left: 3px solid var(--accent);
+    padding-left: 9px;
+}
+
+.gt-badge {
+    display: inline-block;
+    width: 22px;
+    text-align: center;
+    border-radius: 3px;
+    padding: 2px 0;
+    font-weight: 600;
+    color: #161719;
+    font-size: 11px;
+}
+
+.gt-c { background: var(--regime-c); }
+.gt-s { background: var(--regime-s); }
+.gt-k { background: var(--regime-k); color: #fff; }
+.gt-r { background: var(--regime-r); }
+.gt- { background: var(--regime-unknown); color: #ddd; }
+
+.cell-line-1 {
+    color: var(--text);
+    font-weight: 500;
+}
+
+.cell-line-2 {
+    color: var(--dim);
+    font-size: 10.5px;
+}
+
+section#plot-area {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#cell-header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+}
+
+#cell-header .gt-large {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 3px;
+    font-weight: 700;
+    color: #161719;
+    font-size: 13px;
+}
+
+#cell-header .placeholder {
+    color: var(--dim);
+}
+
+#cell-header .title {
+    font-weight: 600;
+}
+
+#cell-header .subtitle {
+    color: var(--dim);
+    font-size: 11px;
+}
+
+#plot {
+    flex: 1;
+    background: var(--bg);
+    min-height: 0;
+}
+
+#cell-meta {
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    padding: 10px 16px;
+    color: var(--dim);
+    font-size: 11px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 6px 18px;
+}
+
+#cell-meta .meta-key {
+    color: var(--dim);
+}
+
+#cell-meta .meta-val {
+    color: var(--text);
+}
