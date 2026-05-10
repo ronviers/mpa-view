@@ -284,6 +284,32 @@ nav#view-tabs {
     padding: 8px 16px;
     color: var(--dim);
     font-size: 11px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    align-items: center;
+}
+
+#strip-meta strong {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.reading-key {
+    color: var(--text);
+    white-space: nowrap;
+}
+
+.reading-key .r-c { color: var(--regime-c); }
+.reading-key .r-s { color: var(--regime-s); }
+.reading-key .r-k { color: var(--regime-k); }
+.reading-key .r-r { color: var(--regime-r); }
+
+.strip-note {
+    flex-basis: 100%;
+    color: var(--dim);
+    font-size: 10.5px;
+    margin-top: 2px;
 }
 
 #cell-header {

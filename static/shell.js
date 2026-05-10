@@ -336,8 +336,12 @@
         `;
         els.stripGrid.innerHTML = '';
         els.stripMeta.innerHTML = `
-            scan left→right: regime should walk through the gt sequence.
-            color: gt regime · curves: 31 τ_obs windows superimposed (teal=narrow, yellow=wide).
+            <strong>read shape, not magnitude.</strong>
+            <span class="reading-key"><span class="r-c">●</span> c · suppressed locus near origin (frozen)</span>
+            <span class="reading-key"><span class="r-s">●</span> s · curves bow outward (Cugliandolo–Kurchan aging)</span>
+            <span class="reading-key"><span class="r-k">●</span> k · scrambled / scale-free (critical)</span>
+            <span class="reading-key"><span class="r-r">●</span> r · straight fan (equilibrium FDR)</span>
+            <span class="strip-note">axes auto-scaled per cell — the library uses τ_env-anchored time grids that differ in absolute scale across operating points (LIBRARY_SPEC §"τ_env-anchored sampling").</span>
         `;
 
         // Render placeholders first so layout settles, then fill in.
@@ -362,24 +366,15 @@
             return cell;
         });
 
-        // Compute a shared axis range so visual comparison is honest.
-        // We fetch all view payloads, then render in two passes.
+        // Per-cell auto-scaling. Shared-axis comparison was attempted in
+        // v0.1 but library cells use τ_env-anchored time grids whose
+        // absolute scales differ by 100× across operating points (per
+        // LIBRARY_SPEC); shared axes squashed below-T_c cells into
+        // invisibility. τ_env-rescaling is the right deeper fix; queued.
         Promise.all(placeholders.map(c => fetchStripView(c.task_id)))
             .then(views => {
-                const xs = views.flatMap(v => v.traces.flatMap(t => t.x));
-                const ys = views.flatMap(v => v.traces.flatMap(t => t.y));
-                const xMax = Math.max(...xs.filter(v => isFinite(v)));
-                const xMin = Math.min(...xs.filter(v => isFinite(v)));
-                const yMax = Math.max(...ys.filter(v => isFinite(v)));
-                const yMin = Math.min(...ys.filter(v => isFinite(v)));
-                const xPad = (xMax - xMin) * 0.04 || 1;
-                const yPad = (yMax - yMin) * 0.04 || 1;
-                const sharedRange = {
-                    x: [xMin - xPad, xMax + xPad],
-                    y: [yMin - yPad, yMax + yPad],
-                };
                 for (let i = 0; i < placeholders.length; i++) {
-                    renderStripPlot(placeholders[i], views[i], sharedRange);
+                    renderStripPlot(placeholders[i], views[i], null);
                 }
             })
             .catch(err => {
@@ -416,19 +411,24 @@
                 hoverinfo: 'skip',  // strip plots are scan-only; click to drill
             };
         });
+        const xaxis = {
+            gridcolor: '#36383b', zerolinecolor: '#36383b',
+            showticklabels: true, tickfont: {size: 8},
+        };
+        const yaxis = {
+            gridcolor: '#36383b', zerolinecolor: '#36383b',
+            showticklabels: true, tickfont: {size: 8},
+        };
+        if (sharedRange) {
+            xaxis.range = sharedRange.x;
+            yaxis.range = sharedRange.y;
+        }
         const layout = {
             paper_bgcolor: '#1f2123',
             plot_bgcolor: '#1f2123',
             font: {family: 'ui-monospace, monospace', color: '#e6e7e9', size: 9},
             margin: {l: 36, r: 8, t: 6, b: 22},
-            xaxis: {
-                gridcolor: '#36383b', zerolinecolor: '#36383b',
-                range: sharedRange.x, showticklabels: true, tickfont: {size: 8},
-            },
-            yaxis: {
-                gridcolor: '#36383b', zerolinecolor: '#36383b',
-                range: sharedRange.y, showticklabels: true, tickfont: {size: 8},
-            },
+            xaxis, yaxis,
             showlegend: false,
         };
         Plotly.newPlot(target, traces, layout, {
