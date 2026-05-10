@@ -42,11 +42,25 @@
     </aside>
 
     <section id="plot-area">
-        <header id="cell-header">
-            <span class="placeholder">pick a cell &rarr;</span>
-        </header>
-        <div id="plot"></div>
-        <footer id="cell-meta"></footer>
+        <nav id="view-tabs">
+            <button class="view-tab active" data-view="single">single cell</button>
+            <button class="view-tab" data-view="strip">strip · regime migration</button>
+            <span class="view-help" id="view-help"></span>
+        </nav>
+        <div id="single-view" class="view-pane active">
+            <header id="cell-header">
+                <span class="placeholder">pick a cell &rarr;</span>
+            </header>
+            <div id="plot"></div>
+            <footer id="cell-meta"></footer>
+        </div>
+        <div id="strip-view" class="view-pane">
+            <header id="strip-header">
+                <span class="placeholder">pick substrate + ẋ-kind to render the migration strip &rarr;</span>
+            </header>
+            <div id="strip-grid"></div>
+            <footer id="strip-meta"></footer>
+        </div>
     </section>
 </main>
 

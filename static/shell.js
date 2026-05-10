@@ -14,12 +14,26 @@
         cellHeader: document.getElementById('cell-header'),
         plot: document.getElementById('plot'),
         cellMeta: document.getElementById('cell-meta'),
+        viewTabs: document.querySelectorAll('.view-tab'),
+        viewHelp: document.getElementById('view-help'),
+        singleView: document.getElementById('single-view'),
+        stripView: document.getElementById('strip-view'),
+        stripHeader: document.getElementById('strip-header'),
+        stripGrid: document.getElementById('strip-grid'),
+        stripMeta: document.getElementById('strip-meta'),
     };
 
     const state = {
         cells: [],
         filtered: [],
         activeId: null,
+        viewMode: 'single',           // 'single' | 'strip'
+        stripCache: new Map(),         // task_id -> view payload
+    };
+
+    const VIEW_HELP = {
+        single: 'one cell · all 31 τ_obs windows superimposed',
+        strip:  'all cells matching the (substrate, ẋ-kind) filter · regime migration in one glance',
     };
 
     // ── Boot ───────────────────────────────────────────────────────────
@@ -89,6 +103,7 @@
             (!xk || c.xdot_kind === xk)
         );
         renderCellList();
+        if (state.viewMode === 'strip') renderStrip();
     }
 
     function renderCellList() {
@@ -221,8 +236,6 @@
                 gridcolor: '#36383b',
                 zerolinecolor: '#36383b',
             },
-            shapes: regimeReferenceShapes(view),
-            annotations: regimeAnnotations(view),
         };
 
         Plotly.newPlot(els.plot, traces, layout, {
@@ -230,38 +243,6 @@
             displaylogo: false,
             modeBarButtonsToRemove: ['lasso2d', 'select2d'],
         });
-    }
-
-    // Reference lines for the gFDR signature classes.
-    // r-regime: unit-slope FDR (slope ≈ 1/T-effective). We don't know T_eff
-    // without calibration, so we draw a broken line at slope 1 through the
-    // data centroid as a visual anchor — labeled "slope 1 (r-FDR)".
-    function regimeReferenceShapes(view) {
-        const allX = view.traces.flatMap(t => t.x);
-        const allY = view.traces.flatMap(t => t.y);
-        if (!allX.length) return [];
-        const xMin = Math.min(...allX), xMax = Math.max(...allX);
-        const yMid = (Math.min(...allY) + Math.max(...allY)) / 2;
-        const xMid = (xMin + xMax) / 2;
-        // y = (x - xMid) + yMid → slope-1 anchor.
-        return [{
-            type: 'line',
-            xref: 'x', yref: 'y',
-            x0: xMin, y0: yMid + (xMin - xMid),
-            x1: xMax, y1: yMid + (xMax - xMid),
-            line: {color: '#666', width: 1, dash: 'dot'},
-        }];
-    }
-
-    function regimeAnnotations(view) {
-        return [{
-            xref: 'paper', yref: 'paper',
-            x: 0.99, y: 0.02,
-            xanchor: 'right', yanchor: 'bottom',
-            text: 'dotted: slope-1 reference (r-regime FDR)',
-            showarrow: false,
-            font: {color: '#666', size: 10},
-        }];
     }
 
     // Viridis-ish colormap (4 stops).
@@ -292,4 +273,178 @@
         const id = decodeURIComponent(location.hash.replace(/^#/, ''));
         if (id && id !== state.activeId) selectCell(id);
     });
+
+    // ── View tabs (single / strip) ─────────────────────────────────────
+
+    for (const tab of els.viewTabs) {
+        tab.addEventListener('click', () => setViewMode(tab.dataset.view));
+    }
+    els.viewHelp.textContent = VIEW_HELP[state.viewMode];
+
+    function setViewMode(mode) {
+        if (mode === state.viewMode) return;
+        state.viewMode = mode;
+        for (const tab of els.viewTabs) {
+            tab.classList.toggle('active', tab.dataset.view === mode);
+        }
+        els.singleView.classList.toggle('active', mode === 'single');
+        els.stripView.classList.toggle('active', mode === 'strip');
+        els.viewHelp.textContent = VIEW_HELP[mode];
+        if (mode === 'strip') renderStrip();
+    }
+
+    // ── Strip view ─────────────────────────────────────────────────────
+    //
+    // Renders one mini-plot per cell in `state.filtered`, ordered by the
+    // substrate's "regime migration parameter" so the operator can read
+    // c→s→k→r migration as a single visual sweep.
+
+    function migrationKey(cell) {
+        // glass: T (ascending = increasingly relaxed/r-side)
+        // quantum: p_base (ascending = increasingly noise-dominated/r-side)
+        // brain: scenario order committed→suspended→conflict→reset (c→s→k→r)
+        const op = cell.operating_point || {};
+        if (cell.substrate === 'glass') return op.T ?? 0;
+        if (cell.substrate === 'quantum') return op.p_base ?? 0;
+        if (cell.substrate === 'brain') {
+            const order = {committed: 0, suspended: 1, conflict: 2, reset: 3};
+            return order[op.scenario] ?? 99;
+        }
+        return 0;
+    }
+
+    function renderStrip() {
+        const cells = [...state.filtered].sort(
+            (a, b) => migrationKey(a) - migrationKey(b)
+        );
+
+        // Determine if filters constrain enough to be meaningful.
+        const subs = uniq(cells.map(c => c.substrate));
+        const xks = uniq(cells.map(c => c.xdot_kind));
+        if (subs.length !== 1 || xks.length !== 1) {
+            els.stripHeader.innerHTML =
+                '<span class="placeholder">strip view needs a single substrate AND a single ẋ-kind picked in the left filters &rarr;</span>';
+            els.stripGrid.innerHTML = '';
+            els.stripMeta.innerHTML = '';
+            return;
+        }
+
+        const sub = subs[0], xk = xks[0];
+        els.stripHeader.innerHTML = `
+            <span class="title">${escapeHtml(sub)} · ẋ=${escapeHtml(xk)}</span>
+            <span class="dim"> · ${cells.length} cells, ordered by regime-migration parameter</span>
+        `;
+        els.stripGrid.innerHTML = '';
+        els.stripMeta.innerHTML = `
+            scan left→right: regime should walk through the gt sequence.
+            color: gt regime · curves: 31 τ_obs windows superimposed (teal=narrow, yellow=wide).
+        `;
+
+        // Render placeholders first so layout settles, then fill in.
+        const placeholders = cells.map(cell => {
+            const div = document.createElement('div');
+            div.className = 'strip-cell clickable';
+            div.dataset.taskId = cell.task_id;
+            const gtColor = regimeColor(cell.gt);
+            div.innerHTML = `
+                <div class="strip-cell-header">
+                    <span class="gt-strip" style="background: ${gtColor}">${cell.gt || '?'}</span>
+                    <span class="label">${escapeHtml(cell.operating_point_label)}</span>
+                    <span class="sub">n=${cell.n_realizations || '?'}</span>
+                </div>
+                <div class="strip-plot" id="strip-plot-${cssEscape(cell.task_id)}"></div>
+            `;
+            div.addEventListener('click', () => {
+                setViewMode('single');
+                selectCell(cell.task_id);
+            });
+            els.stripGrid.appendChild(div);
+            return cell;
+        });
+
+        // Compute a shared axis range so visual comparison is honest.
+        // We fetch all view payloads, then render in two passes.
+        Promise.all(placeholders.map(c => fetchStripView(c.task_id)))
+            .then(views => {
+                const xs = views.flatMap(v => v.traces.flatMap(t => t.x));
+                const ys = views.flatMap(v => v.traces.flatMap(t => t.y));
+                const xMax = Math.max(...xs.filter(v => isFinite(v)));
+                const xMin = Math.min(...xs.filter(v => isFinite(v)));
+                const yMax = Math.max(...ys.filter(v => isFinite(v)));
+                const yMin = Math.min(...ys.filter(v => isFinite(v)));
+                const xPad = (xMax - xMin) * 0.04 || 1;
+                const yPad = (yMax - yMin) * 0.04 || 1;
+                const sharedRange = {
+                    x: [xMin - xPad, xMax + xPad],
+                    y: [yMin - yPad, yMax + yPad],
+                };
+                for (let i = 0; i < placeholders.length; i++) {
+                    renderStripPlot(placeholders[i], views[i], sharedRange);
+                }
+            })
+            .catch(err => {
+                els.stripGrid.innerHTML =
+                    `<div style="padding: 20px; color: var(--dim)">strip load failed: ${escapeHtml(String(err))}</div>`;
+            });
+    }
+
+    function fetchStripView(taskId) {
+        if (state.stripCache.has(taskId)) {
+            return Promise.resolve(state.stripCache.get(taskId));
+        }
+        return fetch(`/api/view/gfdr/${encodeURIComponent(taskId)}`)
+            .then(r => r.json())
+            .then(v => { state.stripCache.set(taskId, v); return v; });
+    }
+
+    function renderStripPlot(cell, view, sharedRange) {
+        const targetId = `strip-plot-${cssEscape(cell.task_id)}`;
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        const tws = view.traces.map(t => t.tau_window);
+        const logmin = Math.log10(Math.max(1e-9, Math.min(...tws)));
+        const logmax = Math.log10(Math.max(...tws));
+        const span = (logmax - logmin) || 1;
+        const traces = view.traces.map(t => {
+            const frac = (Math.log10(t.tau_window) - logmin) / span;
+            const color = viridis(frac);
+            return {
+                x: t.x, y: t.y,
+                mode: 'lines', type: 'scatter',
+                line: {color, width: 0.8},
+                showlegend: false,
+                hoverinfo: 'skip',  // strip plots are scan-only; click to drill
+            };
+        });
+        const layout = {
+            paper_bgcolor: '#1f2123',
+            plot_bgcolor: '#1f2123',
+            font: {family: 'ui-monospace, monospace', color: '#e6e7e9', size: 9},
+            margin: {l: 36, r: 8, t: 6, b: 22},
+            xaxis: {
+                gridcolor: '#36383b', zerolinecolor: '#36383b',
+                range: sharedRange.x, showticklabels: true, tickfont: {size: 8},
+            },
+            yaxis: {
+                gridcolor: '#36383b', zerolinecolor: '#36383b',
+                range: sharedRange.y, showticklabels: true, tickfont: {size: 8},
+            },
+            showlegend: false,
+        };
+        Plotly.newPlot(target, traces, layout, {
+            displayModeBar: false,
+            responsive: true,
+            staticPlot: true,
+        });
+    }
+
+    function regimeColor(gt) {
+        return ({c: '#3f88c5', s: '#e6af2e', k: '#a23b72', r: '#a8a8a8'})[gt] || '#555';
+    }
+
+    function cssEscape(s) {
+        // Plain-CSS-id-safe; task_ids contain only [a-zA-Z0-9_.\-=] in practice.
+        return String(s).replace(/[^a-zA-Z0-9_-]/g, ch =>
+            '_' + ch.charCodeAt(0).toString(16));
+    }
 })();

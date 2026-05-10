@@ -26,39 +26,14 @@ regime overlay).
 | Slot | Status | Notes |
 |---|---|---|
 | Calibration pipeline stepper | scaffold only | Activates when the first sealed [calibration record](https://github.com/ronviers/mpa-atlas/blob/main/schema/calibration-record.v0.1.json) (RFC-C v0.2) lands. No records exist yet. |
-| Cross-substrate strip view | not started | Render a row of small gFDR plots across operating points so regime migration is visceral (proposal's "pattern library makes universality classes visceral"). |
+| Cross-substrate strip view | **landed** (2026-05-10) | Tab in the right pane: when filters narrow to a single substrate + ẋ-kind, renders a grid of mini gFDR plots ordered by the substrate's regime-migration parameter (T for glass, p_base for quantum, scenario-order for brain). Shared axis range across the strip for honest visual comparison. |
 | Pattern library curation | not started | Curated bookmarks of canonical signature shapes (s-aging diagonal, c-frozen suppressed locus, r-equilibrium unit-slope). Trains operators by example. |
 | Driver-profile versioning replay | not started | Once an old episode is on file with a sealed driver profile, replay it through a newer profile. Calibration is the gating dependency. |
 | Brain Langevin reference driver consumption | gated on mpa-atlas | Brain library cells render fine, but framework-canonical claims on them require [`reference-drivers/brain-langevin.md`](https://github.com/ronviers/mpa-atlas/blob/main/reference-drivers/) per RULES.md rule 14. mpa-atlas handoff item 2 covers it. |
 
 ---
 
-## Open item 1 — Cross-substrate strip view
-
-The proposal's third bullet: *"A rheologist inspecting a glass cessation
-archetype and a QEC logical fidelity decay can see that both are
-exponential extraction processes with different time constants. The
-pattern library makes universality classes visceral."*
-
-Implement as a tab / toggle that, given a (substrate, ẋ-kind, gt-class)
-slice, renders a row of small gFDR plots — one per operating point — so
-the operator sees regime migration as a single visual sweep. Glass at
-T=0.5/0.7/0.85/0.95/1.00/1.10 should walk visibly through s-aging into
-critical-then-r. Quantum at p=1e-4 → 5e-2 should walk r → s → k. Brain
-across scenarios should walk c (committed) → s (suspended) → k
-(conflict) → r (reset).
-
-**Done when:** a strip-view tab exists; a single click on a (substrate,
-ẋ) pair renders the strip ordered by operating-point parameter; the
-operator can read regime migration without clicking through cells one
-by one.
-
-**Effort:** A few hours. Mechanical — same `views/gfdr.py` data prep
-applied to N cells, laid out in a grid. Plotly subplot grid.
-
----
-
-## Open item 2 — Calibration pipeline stepper
+## Open item 1 — Calibration pipeline stepper
 
 The proposal's second bullet: a stepper that walks through a
 calibration record (RFC-C v0.2 schema) primitive by primitive
@@ -82,7 +57,7 @@ schema → UI mapping.
 
 ---
 
-## Open item 3 — Pattern library curation
+## Open item 2 — Pattern library curation
 
 A curated set of *bookmarked views* — saved (cell, view-type, zoom,
 annotation) tuples that name canonical signature shapes ("s-aging

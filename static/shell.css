@@ -159,6 +159,133 @@ section#plot-area {
     overflow: hidden;
 }
 
+nav#view-tabs {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 32px;
+}
+
+.view-tab {
+    background: transparent;
+    color: var(--dim);
+    border: none;
+    padding: 6px 12px;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+
+.view-tab:hover { color: var(--text); }
+
+.view-tab.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+}
+
+.view-help {
+    margin-left: auto;
+    color: var(--dim);
+    font-size: 10.5px;
+}
+
+.view-pane {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.view-pane.active {
+    display: flex;
+}
+
+#strip-header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    color: var(--dim);
+    font-size: 11px;
+}
+
+#strip-header .placeholder { color: var(--dim); }
+#strip-header .title { color: var(--text); font-weight: 600; }
+
+#strip-grid {
+    flex: 1;
+    background: var(--bg);
+    overflow: auto;
+    padding: 12px;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    align-content: start;
+}
+
+.strip-cell {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.strip-cell-header {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+}
+
+.strip-cell-header .gt-strip {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 2px;
+    font-weight: 700;
+    color: #161719;
+    font-size: 11px;
+}
+
+.strip-cell-header .label {
+    color: var(--text);
+    font-weight: 500;
+}
+
+.strip-cell-header .sub {
+    color: var(--dim);
+    font-size: 10.5px;
+    margin-left: auto;
+}
+
+.strip-plot {
+    height: 200px;
+    background: #1f2123;
+}
+
+.strip-cell.clickable {
+    cursor: pointer;
+}
+
+.strip-cell.clickable:hover {
+    border-color: var(--accent);
+}
+
+#strip-meta {
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    padding: 8px 16px;
+    color: var(--dim);
+    font-size: 11px;
+}
+
 #cell-header {
     background: var(--panel);
     border-bottom: 1px solid var(--border);
