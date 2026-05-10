@@ -336,12 +336,12 @@
         `;
         els.stripGrid.innerHTML = '';
         els.stripMeta.innerHTML = `
-            <strong>read shape, not magnitude.</strong>
-            <span class="reading-key"><span class="r-c">●</span> c · suppressed locus near origin (frozen)</span>
-            <span class="reading-key"><span class="r-s">●</span> s · curves bow outward (Cugliandolo–Kurchan aging)</span>
-            <span class="reading-key"><span class="r-k">●</span> k · scrambled / scale-free (critical)</span>
-            <span class="reading-key"><span class="r-r">●</span> r · straight fan (equilibrium FDR)</span>
-            <span class="strip-note">axes auto-scaled per cell — the library uses τ_env-anchored time grids that differ in absolute scale across operating points (LIBRARY_SPEC §"τ_env-anchored sampling").</span>
+            <strong>framework signatures (v9 §FDR):</strong>
+            <span class="reading-key"><span class="r-c">●</span> c · X_c = lim χ/(C₀−C) → 0 · flat horizontal asymptote</span>
+            <span class="reading-key"><span class="r-s">●</span> s · linear segment slope α_s ∈ (0,1) · CK aging ratio</span>
+            <span class="reading-key"><span class="r-k">●</span> k_frust · N_f = transient-negative χ fraction · loops / non-monotonic</span>
+            <span class="reading-key"><span class="r-r">●</span> r · X_r → 1 · unit-slope linear locus (equilibrium FDR)</span>
+            <span class="strip-note">these are framework predictions. whether your data instances them is empirical — disagreements are calibration evidence (RFC-C). axes auto-scaled per cell because the library uses τ_env-anchored time grids of differing absolute scale (LIBRARY_SPEC §"τ_env-anchored sampling"). slopes / X-ratios are not yet computed — strip view shows the raw parametric; an X-ratio derivation view is queued.</span>
         `;
 
         // Render placeholders first so layout settles, then fill in.

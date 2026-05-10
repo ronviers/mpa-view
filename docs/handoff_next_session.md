@@ -33,7 +33,35 @@ regime overlay).
 
 ---
 
-## Open item 1 — Calibration pipeline stepper
+## Open item 1 — X-ratio derivation view
+
+The current strip view shows the raw `χ_d vs (C_d_diag − C_d)` parametric. The MPA-canonical regime invariants live in *derivatives* of that parametric, not in the parametric itself (per [v9 §FDR signatures](https://github.com/ronviers/mpa-atlas/blob/main/framework/v9_compressed.md)):
+
+- `X(τ) = χ(τ) / (C(0) − C(τ))` — the FDR violation factor
+- `X_c = lim_τ X = 0` (c-regime), `X_r = 1` (r-regime)
+- `α_s = slope of aging segment in χ vs (C₀−C)` (s-regime, ∈ (0,1))
+- `N_f = ∫min(0,χ)dτ / ∫|χ|dτ` (k_frust regime, transient-negative fraction)
+
+The current view asks the operator to *eyeball* asymptotic slopes on per-cell auto-scaled axes — slopes that often live at the curve's high-(C₀−C) tail and aren't visually distinct on linear axes. An **X-ratio strip** would compute these directly and plot:
+
+- **Per cell:** `X(τ_window)` vs `τ_window` (one cell, one curve, walks across kernel widths)
+- **Across cells:** asymptotic `X` value at the longest-lag tail vs operating-point parameter (T for glass, p_base for quantum, scenario for brain). Reference horizontal lines at `X=0` and `X=1`. The walk c → s → k → r should visibly traverse the [0, 1] band, with k-cells landing at negative X due to N_f > 0.
+
+This is the view that converts shape-eyeballing into regime-reading.
+
+**Implementation notes:**
+
+- Need an asymptotic-slope estimator. First-pass: fit a line through the last N points of each (cell, τ_window) curve, take the slope as `X`. N=5 or so. Robust to brain's `SEM=null` because slope is from means; uncertainty propagation deferred.
+- For `N_f`: count points with `χ_d_mean < 0` per (cell, τ_window), normalize by total points. Trivial.
+- Handle below-T_c glass cells (`tau_env_analytic = null`) honestly: the asymptotic limit may not exist on the experiment timescale; surface that as a "limit not reached" annotation rather than computing a misleading number.
+
+**Done when:** new tab "X-ratio · regime derivation" alongside `single` / `strip`; given a (substrate, ẋ-kind), renders the X-ratio walk across operating points; below-T_c cells annotated with "limit not reached" where applicable; clicking a point drills back to the single-cell view for that (cell, τ_window).
+
+**Effort:** A few hours. The math is mechanical (linear fit on tails); the honesty-about-limit-not-reached part is the load-bearing UX work.
+
+---
+
+## Open item 2 — Calibration pipeline stepper
 
 The proposal's second bullet: a stepper that walks through a
 calibration record (RFC-C v0.2 schema) primitive by primitive
@@ -57,7 +85,7 @@ schema → UI mapping.
 
 ---
 
-## Open item 2 — Pattern library curation
+## Open item 3 — Pattern library curation
 
 A curated set of *bookmarked views* — saved (cell, view-type, zoom,
 annotation) tuples that name canonical signature shapes ("s-aging
