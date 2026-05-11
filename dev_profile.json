@@ -1,11 +1,125 @@
 {
-  "_note": "Placeholder. Run H:/GWS1_Profiler/host-profile_concise.py to populate. The profiler reads the host environment, never writes raw secret values into this file (only PRESENT (#sha-fingerprint) markers).",
-  "environment": null,
-  "mpc_kernel_version": null,
-  "git": null,
-  "hardware": null,
-  "system_tools": null,
-  "python_dependencies": null,
-  "ai_environment": null,
-  "project_structure": null
+    "environment": {
+        "host": "Windows",
+        "guest": "WSL2/Linux",
+        "os_kernel": "Windows-11-10.0.26200-SP0"
+    },
+    "mpc_kernel_version": "UNKNOWN",
+    "git": {
+        "branch": "Not a git repo",
+        "uncommitted_changes": "N/A"
+    },
+    "hardware": {
+        "cpu": "13th Gen Intel(R) Core(TM) i9-13900KF",
+        "ram_gb": 127.79,
+        "gpu": "NVIDIA GeForce RTX 4080 SUPER"
+    },
+    "system_tools": {
+        "windows": {
+            "python": "Python 3.12.8",
+            "cuda_toolkit": null
+        },
+        "wsl": {
+            "python": "Python 3.12.3",
+            "cuda_toolkit": null
+        }
+    },
+    "python_dependencies": {
+        "windows": {
+            "jax": null,
+            "jaxlib": null,
+            "numpy": "2.4.2",
+            "scipy": "1.17.0",
+            "matplotlib": "3.10.9",
+            "torch": "2.5.1+cu121",
+            "transformers": "4.38.2"
+        },
+        "wsl": {
+            "jax": "0.10.0",
+            "jaxlib": "0.10.0",
+            "numpy": "2.4.4",
+            "scipy": "1.17.1",
+            "matplotlib": "3.10.8",
+            "torch": "2.11.0+cu130",
+            "transformers": "5.5.4"
+        }
+    },
+    "jax_config": {
+        "windows_backend": null,
+        "wsl_backend": "gpu"
+    },
+    "ollama_models": {
+        "windows": [
+            "gemma4:31b",
+            "nomic-embed-text:latest",
+            "qwen3-embedding:latest",
+            "nemotron-cascade-2:latest",
+            "deepseek-r1:14b",
+            "qwen3.5:35b",
+            "lfm2:24b-a2b",
+            "phi3:medium",
+            "nemotron-3-super:cloud",
+            "mistral:7b",
+            "qwen2.5:14b",
+            "qwen2.5:32b",
+            "minimax-m2.7:cloud",
+            "Agent-Qwen2.5-Coder:latest",
+            "qwen2.5-coder:32b",
+            "qwen3-agent:latest",
+            "Agent-Qwen-32B:latest",
+            "qwen3:32b"
+        ],
+        "wsl": [
+            "gemma4:31b",
+            "nomic-embed-text:latest",
+            "qwen3-embedding:latest",
+            "nemotron-cascade-2:latest",
+            "deepseek-r1:14b",
+            "qwen3.5:35b",
+            "lfm2:24b-a2b",
+            "phi3:medium",
+            "nemotron-3-super:cloud",
+            "mistral:7b",
+            "qwen2.5:14b",
+            "qwen2.5:32b",
+            "minimax-m2.7:cloud",
+            "Agent-Qwen2.5-Coder:latest",
+            "qwen2.5-coder:32b",
+            "qwen3-agent:latest",
+            "Agent-Qwen-32B:latest",
+            "qwen3:32b"
+        ]
+    },
+    "ai_environment": {
+        "ANTHROPIC_API_KEY": "PRESENT (#ca38b8)",
+        "OPENAI_API_KEY": "PRESENT (#a36b60)",
+        "GEMINI_API_KEY": "PRESENT (#4d7618)",
+        "MOONSHOT_API_KEY": "PRESENT (#c5ff2d)",
+        "HF_TOKEN": "PRESENT (#9e8fb1)",
+        "GH_TOKEN": "PRESENT (#59d601)",
+        "OLLAMA_MODELS": "O:\\Models\\data"
+    },
+    "project_structure": {
+        ".gitattributes": "1KB [RECENT]",
+        ".gitignore": "1KB [RECENT]",
+        "README.md": "4KB [RECENT]",
+        "docs": {
+            "handoff_next_session.md": "7KB [RECENT]"
+        },
+        "loaders": {
+            "__init__.py": "1KB [RECENT]",
+            "library.py": "7KB [RECENT]"
+        },
+        "server.py": "7KB [RECENT]",
+        "static": {
+            "shell.css": "7KB [RECENT]",
+            "shell.html": "3KB [RECENT]",
+            "shell.js": "29KB [RECENT]"
+        },
+        "views": {
+            "__init__.py": "1KB [RECENT]",
+            "gfdr.py": "5KB [RECENT]",
+            "xratio.py": "8KB [RECENT]"
+        }
+    }
 }
