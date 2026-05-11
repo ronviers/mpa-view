@@ -46,6 +46,7 @@
             <button class="view-tab active" data-view="single">single cell</button>
             <button class="view-tab" data-view="strip">strip · substrate-native</button>
             <button class="view-tab" data-view="xratio">X-ratio · canonical</button>
+            <button class="view-tab" data-view="calibration">calibration · stepper</button>
             <span class="view-help" id="view-help"></span>
         </nav>
         <div id="single-view" class="view-pane active">
@@ -71,6 +72,21 @@
                 <div id="xratio-plot-Nf" class="xratio-plot"></div>
             </div>
             <footer id="xratio-meta"></footer>
+        </div>
+        <div id="calibration-view" class="view-pane">
+            <header id="calibration-picker">
+                <label>calibration record
+                    <select id="calibration-select">
+                        <option value="">(loading&hellip;)</option>
+                    </select>
+                </label>
+                <span id="calibration-header-meta" class="placeholder">pick a sealed calibration record to step through its primitives &rarr;</span>
+            </header>
+            <nav id="calibration-steps"></nav>
+            <div id="calibration-step-body">
+                <p class="placeholder">stepper renders here once a record is selected.</p>
+            </div>
+            <footer id="calibration-meta"></footer>
         </div>
     </section>
 </main>

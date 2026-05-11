@@ -62,28 +62,38 @@ similar canonical X positions (the cross-substrate transfer test).
 
 ---
 
-## Open item 2 — Calibration pipeline stepper
+## Open item 2 — Calibration pipeline stepper · CLOSED 2026-05-11
 
-**Gating:** No sealed calibration records exist yet. The
-[`calibration-record.v0.1.json`](https://github.com/ronviers/mpa-atlas/blob/main/schema/calibration-record.v0.1.json)
-schema shipped with [RFC-C v0.2](https://github.com/ronviers/mpa-atlas/blob/main/rfcs/MPA-RFC-C-Calibration.md);
-the first record will likely come from running an mpc-glass or
-mpc-quantum experiment through the protocol.
+**Status: landed.** The first sealed calibration record came from
+[`mpa-engine`](https://github.com/ronviers/mpa-engine) (Camry 2.4L
+2AZ-FE, EPA Ricardo Std Car); the stepper went live the same session
+the record was written.
 
-The stepper is a tab that walks through a record primitive by
-primitive (`L`, `G_0`, `τ_obs_canonical`, `γ_AB`), surfacing the
-substrate-native SOP provenance and the validation evidence at
-each step. The stepper is the "calibration mode" the project's
-mission contrasts against runtime.
+What's running:
+- New tab **`calibration · stepper`** in `static/shell.html`.
+- `loaders/calibration.py` — discovers `*-calibration.json` under all
+  `H:/mpa-*/reference-driver{,s}/` and `H:/mpc-*/reference-driver{,s}/`
+  (override via env var `MPA_CALIBRATION_ROOTS`, semicolon-separated).
+- `views/calibration.py` — schema-aware step-builder; produces six
+  steps per record (L · G₀ · τ_obs · γ_AB · validation · seal).
+- Server routes: `GET /api/calibrations` lists discovered records;
+  `GET /api/view/calibration/<cal_id>` returns the stepper view.
+- `static/shell.js` — picker + step navigation + per-step renderers
+  (measurement step / vacuous-γ step / γ-table step / validation
+  table / seal panel).
+- `static/shell.css` — stepper chrome matching the microscope dark
+  theme; intent-pass/fail color uses regime palette (c=pass, k=fail).
 
-**Done when:** mpa-view loads a calibration record by path; a
-stepper UI walks through `measurements.{L, G_0, tau_obs_canonical,
-gamma_AB}` in order; each step shows the measured value,
-uncertainty, SOP reference, and the evidence file (cessation
-trace, drive sweep, etc.) inline.
+The stepper renders the substrate-conditional fingerprint of a
+substrate-class calibration in one screen — the operator can see:
+which primitive carries what measured value, what SOP measured it,
+what evidence backs it, what drift retires it, which intents pass.
 
-**Effort:** A few hours once the first record exists. Mechanical
-schema → UI mapping.
+**Next-substrate handoff.** When a second sealed record lands (e.g.
+mpc-glass or mpc-quantum), it appears in the picker automatically.
+The stepper handles γ_AB tables (single-mode substrates get the
+"vacuous" panel) and intent rows with N/A status, so multi-mode
+substrate records render the same UI.
 
 ---
 

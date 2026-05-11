@@ -26,21 +26,32 @@
         xratioPlotX: document.getElementById('xratio-plot-X'),
         xratioPlotNf: document.getElementById('xratio-plot-Nf'),
         xratioMeta: document.getElementById('xratio-meta'),
+        calibrationView: document.getElementById('calibration-view'),
+        calibrationSelect: document.getElementById('calibration-select'),
+        calibrationHeaderMeta: document.getElementById('calibration-header-meta'),
+        calibrationSteps: document.getElementById('calibration-steps'),
+        calibrationStepBody: document.getElementById('calibration-step-body'),
+        calibrationMeta: document.getElementById('calibration-meta'),
     };
 
     const state = {
         cells: [],
         filtered: [],
         activeId: null,
-        viewMode: 'single',           // 'single' | 'strip' | 'xratio'
+        viewMode: 'single',           // 'single' | 'strip' | 'xratio' | 'calibration'
         stripCache: new Map(),         // task_id -> gFDR view payload
         xratioCache: new Map(),        // task_id -> xratio view payload
+        calibrations: [],              // list of CalibrationIndexEntry
+        calibrationActiveId: null,
+        calibrationCache: new Map(),   // cal_id -> calibration view payload
+        calibrationStepId: 'L',
     };
 
     const VIEW_HELP = {
         single: 'one cell · all 31 τ_obs windows superimposed',
         strip:  'all cells matching the (substrate, ẋ-kind) filter · regime migration in one glance',
         xratio: 'substrate-native data mixed down to canonical X-ratio space · framework reference lines at X=0 (c) and X=1 (r, calibrated)',
+        calibration: 'a sealed RFC-C calibration record · step through the substrate-conditional primitives that constitute the canonical reading',
     };
 
     // ── Boot ───────────────────────────────────────────────────────────
@@ -48,10 +59,13 @@
     Promise.all([
         fetch('/api/health').then(r => r.json()),
         fetch('/api/cells').then(r => r.json()),
-    ]).then(([health, cellsResp]) => {
+        fetch('/api/calibrations').then(r => r.json()),
+    ]).then(([health, cellsResp, calResp]) => {
         renderHealth(health);
         state.cells = cellsResp.cells || [];
+        state.calibrations = calResp.records || [];
         seedFilters(state.cells);
+        seedCalibrationSelect(state.calibrations);
         applyFilters();
         // Deep-link via #task_id
         const initial = decodeURIComponent(location.hash.replace(/^#/, ''));
@@ -298,9 +312,275 @@
         els.singleView.classList.toggle('active', mode === 'single');
         els.stripView.classList.toggle('active', mode === 'strip');
         els.xratioView.classList.toggle('active', mode === 'xratio');
+        els.calibrationView.classList.toggle('active', mode === 'calibration');
         els.viewHelp.textContent = VIEW_HELP[mode];
         if (mode === 'strip') renderStrip();
         if (mode === 'xratio') renderXratio();
+        if (mode === 'calibration' && state.calibrationActiveId) {
+            renderCalibrationStep(state.calibrationStepId);
+        }
+    }
+
+    // ── Calibration stepper ────────────────────────────────────────────
+
+    function seedCalibrationSelect(records) {
+        const sel = els.calibrationSelect;
+        sel.innerHTML = '';
+        if (records.length === 0) {
+            sel.innerHTML = '<option value="">(no calibration records found)</option>';
+            els.calibrationHeaderMeta.innerHTML =
+                '<span class="placeholder">no sealed RFC-C calibration records on the configured roots. ' +
+                'Run an mpa-engine / mpc-glass / mpc-quantum substrate to land one.</span>';
+            return;
+        }
+        sel.innerHTML = '<option value="">(pick a calibration record)</option>';
+        for (const r of records) {
+            const opt = document.createElement('option');
+            opt.value = r.cal_id;
+            opt.textContent = `${r.substrate_class} · v${r.profile_version} · ${r.calibration_date}`;
+            sel.appendChild(opt);
+        }
+        sel.addEventListener('change', () => {
+            if (sel.value) loadCalibration(sel.value);
+        });
+        // Auto-select first record for first-load visual.
+        if (records.length === 1) {
+            sel.value = records[0].cal_id;
+            loadCalibration(records[0].cal_id);
+        }
+    }
+
+    function loadCalibration(calId) {
+        state.calibrationActiveId = calId;
+        const cached = state.calibrationCache.get(calId);
+        if (cached) {
+            renderCalibrationView(cached);
+            return;
+        }
+        els.calibrationStepBody.innerHTML =
+            '<p class="placeholder">loading record&hellip;</p>';
+        fetch(`/api/view/calibration/${encodeURIComponent(calId)}`)
+            .then(r => r.json())
+            .then(view => {
+                state.calibrationCache.set(calId, view);
+                renderCalibrationView(view);
+            })
+            .catch(err => {
+                els.calibrationStepBody.innerHTML =
+                    `<p class="placeholder">load failed: ${escapeHtml(String(err))}</p>`;
+            });
+    }
+
+    function renderCalibrationView(view) {
+        // Header meta.
+        const ref = view.driver_profile_ref || {};
+        els.calibrationHeaderMeta.innerHTML =
+            `<strong>${escapeHtml(ref.substrate_class || '?')}</strong> · ` +
+            `profile v${escapeHtml(ref.profile_version || '?')} · ` +
+            `sealed ${escapeHtml(view.calibration_date || '?')} · ` +
+            `<span class="dim">hash:</span> <code>${escapeHtml((view.substrate_state_hash || '').slice(0, 22))}&hellip;</code>`;
+
+        // Step buttons.
+        els.calibrationSteps.innerHTML = '';
+        const steps = view.steps || [];
+        steps.forEach((step, i) => {
+            const btn = document.createElement('button');
+            btn.className = 'step-btn';
+            if (step.id === state.calibrationStepId) btn.classList.add('active');
+            btn.dataset.stepId = step.id;
+            btn.textContent = `${i + 1} · ${stepShortLabel(step.id)}`;
+            btn.addEventListener('click', () => renderCalibrationStep(step.id));
+            els.calibrationSteps.appendChild(btn);
+        });
+
+        // Default to current step (or first step if current isn't in this record).
+        const stepIds = steps.map(s => s.id);
+        if (!stepIds.includes(state.calibrationStepId) && stepIds.length) {
+            state.calibrationStepId = stepIds[0];
+        }
+        renderCalibrationStep(state.calibrationStepId);
+    }
+
+    function stepShortLabel(id) {
+        const map = {
+            'L': 'L',
+            'G_0': 'G₀',
+            'tau_obs_canonical': 'τ_obs',
+            'gamma_AB': 'γ_AB',
+            'validation': 'validation',
+            'seal': 'seal',
+        };
+        return map[id] || id;
+    }
+
+    function renderCalibrationStep(stepId) {
+        state.calibrationStepId = stepId;
+        // Update active button.
+        const buttons = els.calibrationSteps.querySelectorAll('.step-btn');
+        for (const b of buttons) {
+            b.classList.toggle('active', b.dataset.stepId === stepId);
+        }
+
+        const view = state.calibrationCache.get(state.calibrationActiveId);
+        if (!view) return;
+        const step = (view.steps || []).find(s => s.id === stepId);
+        if (!step) {
+            els.calibrationStepBody.innerHTML = '<p class="placeholder">(step not found)</p>';
+            return;
+        }
+
+        els.calibrationStepBody.innerHTML = renderStepHTML(step);
+    }
+
+    function renderStepHTML(step) {
+        // Three layouts: measurement step, validation, seal.
+        if (step.id === 'validation') return renderValidationStep(step);
+        if (step.id === 'seal') return renderSealStep(step);
+        if (step.id === 'gamma_AB' && step.vacuous) return renderVacuousGammaStep(step);
+        if (step.id === 'gamma_AB') return renderGammaStep(step);
+        return renderMeasurementStep(step);
+    }
+
+    function renderMeasurementStep(step) {
+        const m = step.measurement || {};
+        const valueDisplay = m.value != null
+            ? `${formatNum(m.value)}${m.uncertainty != null ? ' ± ' + formatNum(m.uncertainty) : ''}`
+            : '(no value)';
+        const validRangeBit = m.valid_range
+            ? `<div class="step-row"><span class="step-key">valid range:</span> <span class="step-val">[${m.valid_range.map(formatNum).join(', ')}]</span></div>`
+            : '';
+        const retire = step.retirement || {};
+        return `
+            <article class="step-content">
+                <h2 class="step-title">${escapeHtml(step.title)}</h2>
+                <p class="step-cdv1">${escapeHtml(step.cdv1_meaning)}</p>
+
+                <div class="step-block">
+                    <div class="step-block-label">measurement</div>
+                    <div class="step-value">${escapeHtml(valueDisplay)}</div>
+                    ${validRangeBit}
+                </div>
+
+                <div class="step-block">
+                    <div class="step-block-label">SOP reference <span class="dim">(how this primitive was measured)</span></div>
+                    <p class="step-sop">${escapeHtml(m.sop_ref || '(no SOP ref)')}</p>
+                </div>
+
+                <div class="step-block">
+                    <div class="step-block-label">evidence reference <span class="dim">(${escapeHtml(step.required_evidence)})</span></div>
+                    <p class="step-evidence"><code>${escapeHtml(m.evidence_ref || '(no evidence)')}</code></p>
+                </div>
+
+                ${(retire.drift_max != null || retire.failure_rule) ? `
+                <div class="step-block step-block-retire">
+                    <div class="step-block-label">retirement trigger</div>
+                    ${retire.drift_max != null ? `<div class="step-row"><span class="step-key">drift max:</span> <span class="step-val">${formatNum(retire.drift_max * 100)}%</span></div>` : ''}
+                    ${retire.failure_rule ? `<p class="step-retire-rule">${escapeHtml(retire.failure_rule)}</p>` : ''}
+                </div>` : ''}
+            </article>
+        `;
+    }
+
+    function renderVacuousGammaStep(step) {
+        return `
+            <article class="step-content">
+                <h2 class="step-title">${escapeHtml(step.title)}</h2>
+                <p class="step-cdv1">${escapeHtml(step.cdv1_meaning)}</p>
+
+                <div class="step-block step-block-vacuous">
+                    <div class="step-block-label">vacuous</div>
+                    <p class="step-sop">${escapeHtml(step.vacuous_note || '')}</p>
+                </div>
+            </article>
+        `;
+    }
+
+    function renderGammaStep(step) {
+        const rowsHtml = (step.entries || []).map(e => `
+            <tr>
+                <td><code>${escapeHtml(e.pair)}</code></td>
+                <td>${formatNum(e.value)}${e.uncertainty != null ? ' ± ' + formatNum(e.uncertainty) : ''}</td>
+                <td>${escapeHtml(e.sop_ref || '—')}</td>
+                <td><code>${escapeHtml(e.evidence_ref || '—')}</code></td>
+            </tr>
+        `).join('');
+        return `
+            <article class="step-content">
+                <h2 class="step-title">${escapeHtml(step.title)}</h2>
+                <p class="step-cdv1">${escapeHtml(step.cdv1_meaning)}</p>
+
+                <div class="step-block">
+                    <div class="step-block-label">per-pair measurements</div>
+                    <table class="step-table">
+                        <thead><tr><th>pair</th><th>value ± σ</th><th>SOP</th><th>evidence</th></tr></thead>
+                        <tbody>${rowsHtml}</tbody>
+                    </table>
+                </div>
+            </article>
+        `;
+    }
+
+    function renderValidationStep(step) {
+        const intentRows = (step.intents || []).map(i => {
+            const status = !i.applies
+                ? '<span class="intent-na">not applicable</span>'
+                : i.passed === true
+                    ? '<span class="intent-pass">PASS</span>'
+                    : i.passed === false
+                        ? '<span class="intent-fail">FAIL</span>'
+                        : '<span class="intent-unknown">?</span>';
+            const metricBit = i.applies
+                ? `${formatNum(i.metric_value)} ${i.threshold != null ? '(threshold ' + formatNum(i.threshold) + ')' : ''}`
+                : '—';
+            return `<tr><td><strong>${i.intent}</strong></td><td>${status}</td><td>${escapeHtml(metricBit)}</td></tr>`;
+        }).join('');
+        const refDsBit = step.reference_dataset_ref
+            ? `<p class="step-sop">reference dataset: <code>${escapeHtml(step.reference_dataset_ref)}</code></p>`
+            : '';
+        const fwd = step.forward_residuals || {};
+        const back = step.backward_residuals || {};
+        const note = fwd.note || back.note;
+        return `
+            <article class="step-content">
+                <h2 class="step-title">${escapeHtml(step.title)}</h2>
+                <p class="step-cdv1">${escapeHtml(step.cdv1_meaning)}</p>
+
+                <div class="step-block">
+                    <div class="step-block-label">round-trip references</div>
+                    ${refDsBit}
+                    ${note ? `<p class="step-sop dim">${escapeHtml(note)}</p>` : ''}
+                </div>
+
+                <div class="step-block">
+                    <div class="step-block-label">per-intent metric pass</div>
+                    <table class="step-table">
+                        <thead><tr><th>intent</th><th>status</th><th>metric (threshold)</th></tr></thead>
+                        <tbody>${intentRows}</tbody>
+                    </table>
+                </div>
+            </article>
+        `;
+    }
+
+    function renderSealStep(step) {
+        const supersedesBit = step.supersedes
+            ? `<div class="step-row"><span class="step-key">supersedes:</span> <span class="step-val"><code>${escapeHtml(step.supersedes)}</code></span></div>`
+            : `<div class="step-row"><span class="step-key">supersedes:</span> <span class="step-val">none (initial record)</span></div>`;
+        return `
+            <article class="step-content">
+                <h2 class="step-title">${escapeHtml(step.title)}</h2>
+                <p class="step-cdv1">${escapeHtml(step.cdv1_meaning)}</p>
+
+                <div class="step-block step-block-seal">
+                    <div class="step-block-label">seal</div>
+                    <div class="step-row"><span class="step-key">authority:</span> <span class="step-val">${escapeHtml(step.calibration_authority || '?')}</span></div>
+                    <div class="step-row"><span class="step-key">date:</span> <span class="step-val">${escapeHtml(step.calibration_date || '?')}</span></div>
+                    <div class="step-row"><span class="step-key">profile version pinned:</span> <span class="step-val">${escapeHtml(step.profile_version_pinned || '?')}</span></div>
+                    <div class="step-row"><span class="step-key">substrate state hash:</span> <span class="step-val step-hash"><code>${escapeHtml(step.substrate_state_hash || '?')}</code></span></div>
+                    ${supersedesBit}
+                </div>
+            </article>
+        `;
     }
 
     // ── Strip view ─────────────────────────────────────────────────────

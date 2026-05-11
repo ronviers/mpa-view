@@ -24,12 +24,15 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
 from loaders.library import Library
+from loaders.calibration import CalibrationLibrary
 from views import gfdr as view_gfdr
 from views import xratio as view_xratio
+from views import calibration as view_calibration
 
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _LIBRARY = Library()
+_CALIBRATIONS = CalibrationLibrary()
 
 
 # ── Content-type table ────────────────────────────────────────────────────
@@ -83,6 +86,14 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/api/view/xratio/"):
             task_id = path[len("/api/view/xratio/"):]
             return self._send_view_xratio(task_id)
+        if path == "/api/calibrations":
+            return self._send_json({
+                "roots": _CALIBRATIONS.roots,
+                "records": [r.to_dict() for r in _CALIBRATIONS.records()],
+            })
+        if path.startswith("/api/view/calibration/"):
+            cal_id = path[len("/api/view/calibration/"):]
+            return self._send_view_calibration(cal_id)
         return self.send_error(404, f"unknown route: {path}")
 
     # ── API responses ────────────────────────────────────────────────────
@@ -111,6 +122,19 @@ class Handler(BaseHTTPRequestHandler):
             view = view_xratio.prepare(payload)
         except Exception as exc:  # diagnostic
             return self.send_error(500, f"xratio view failed: {type(exc).__name__}: {exc}")
+        return self._send_json(view)
+
+    def _send_view_calibration(self, cal_id: str):
+        # cal_id is URL-encoded; e.g. "mpa-engine%2Freference-driver%2Fcamry-...-calibration.json"
+        from urllib.parse import unquote
+        cal_id = unquote(cal_id)
+        payload = _CALIBRATIONS.get_payload(cal_id)
+        if payload is None:
+            return self.send_error(404, f"calibration record not found: {cal_id}")
+        try:
+            view = view_calibration.prepare(payload)
+        except Exception as exc:
+            return self.send_error(500, f"calibration view failed: {type(exc).__name__}: {exc}")
         return self._send_json(view)
 
     # ── Helpers ──────────────────────────────────────────────────────────
@@ -163,6 +187,10 @@ def main():
     print(f"per-gt: {h['per_gt']}")
     if h["unreachable_cells"]:
         print(f"WARNING: {len(h['unreachable_cells'])} cells unreachable: {h['unreachable_cells'][:5]}...")
+    ch = _CALIBRATIONS.health()
+    print(f"calibration records: {ch['n_records']} across {len(ch['roots'])} root(s)")
+    if ch["n_records"]:
+        print(f"  per substrate-class: {ch['per_substrate_class']}")
     print("Open the URL in a browser. Ctrl+C to stop.")
     try:
         server.serve_forever()
